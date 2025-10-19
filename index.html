@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DNS</title>
+  <style>
+    body {
+        padding: 0;
+        margin: 0;
+        height: 100vh;
+        background-color: #23272e;
+    }
+
+    .wrapper {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    textarea {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 5px;
+        border: 0;
+        background: transparent;
+        color: #e0e0e0;
+        font-family: monospace;
+        font-size: 1em;
+        z-index: 2;
+        resize: none;
+        overflow: auto;
+        white-space: pre;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: inherit;
+      box-shadow: none;
+    }
+
+    .highlight {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        padding: 5px;
+        border: 0;
+        white-space: pre;
+        color: transparent;
+        font-family: monospace;
+        font-size: 1em;
+        pointer-events: none;
+        z-index: 1;
+        overflow: hidden;
+    }
+
+    .mark {
+        border-radius: 3px;
+    }
+
+    .red {
+        background-color: rgba(255, 80, 80, 0.4);
+    }
+
+    .green {
+        background-color: rgba(80, 255, 120, 0.4);
+    }
+
+    .blue {
+        background-color: rgba(0, 123, 255, 0.4);
+    }
+
+    .gray {
+        background-color: rgba(0, 255, 255, 0.3);
+    }
+
+    .good {
+        color: gray;
+        font-size: 1em;
+        line-height: 1em;
+    }
+
+    .bad {
+        color: red;
+        font-size: 1em;
+        line-height: 1em;
+    }
+
+    .loader {
+        display: inline-block;
+        width: 0.5em;
+        height: 0.5em;
+        border: 2px solid transparent;
+        border-top: 2px solid gray;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .credentials {
+        position: absolute;
+        bottom: 1px;
+        right: 3px;
+        color: #e0e0e0;
+        opacity: 0.3;
+        z-index: 10;
+        font-family: monospace;
+        display: flex;
+        flex-direction: column;
+        align-items: end;
+        justify-content: space-between;
+    }
+
+    .credentials:hover {
+        opacity: 1;
+    }
+
+    .credentials a {
+        text-decoration: none;
+        color: #3380eb;
+        display: flex;
+        gap: 7px;
+        align-items: center;
+    }
+
+    .made, .powered {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha512-qtX0GLM3qX8rxJN1gyDfcnMFFrKvixfoEOwbBib9VafR5vbChV5LeE5wSI/x+IlCkTY5ZFddFDCCfaVJJNnuKQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <div class="wrapper">
+    <div id="highlight" class="highlight"></div>
+    <textarea id="input" spellcheck="false" placeholder="Type or Paste here..."></textarea>
+  </div>
+
+  <div class="credentials">
+    <div class="powered">
+      <div>powered by</div>
+      <a target="_blank" href="https://dns.google">Google Public DNS</a>
+    </div>
+    <div class="powered">
+      <div>powered by</div>
+      <a target="_blank" href="https://one.one.one.one/dns/">Cloudflare 1.1.1.1</a>
+    </div>
+    <div class="made">
+      <div>made by</div>
+      <a target="_blank" href="https://github.com/yumauri">Victor Didenko</a>
+      <div>for</div>
+      <a target="_blank" href="https://setplex.com/">Setplex</a>
+    </div>
+  </div>
+
+  <script>
+    const textarea = document.getElementById('input')
+    const highlightDiv = document.getElementById('highlight')
+
+    function escape(text) {
+      return text.replace(/[&<>"'/]/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;'
+      }[ch]))
+    }
+
+    const RED_START = '\uE001';
+    const GREEN_START = '\uE002';
+    const BLUE_START = '\uE003';
+    const CYAN_START = '\uE004';
+    const MARK_END = '\uE000';
+
+    function red(value) {
+      return RED_START + value + MARK_END
+    }
+
+    function green(value) {
+      return GREEN_START + value + MARK_END
+    }
+
+    function blue(value) {
+      return BLUE_START + value + MARK_END
+    }
+
+    function cyan(value) {
+      return CYAN_START + value + MARK_END
+    }
+
+    function unmark(value) {
+      return value
+        .replace(new RegExp(RED_START, 'g'), '<span class="mark red">')
+        .replace(new RegExp(GREEN_START, 'g'), '<span class="mark green">')
+        .replace(new RegExp(BLUE_START, 'g'), '<span class="mark blue">')
+        .replace(new RegExp(CYAN_START, 'g'), '<span class="mark gray">')
+        .replace(new RegExp(MARK_END, 'g'), '</span>');
+    }
+
+    const ipRe = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/
+
+    const parseLineRe = new RegExp('^' + [
+      /(?:[\s;¿]*)(?<qname>(?:(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63})\.?|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/,
+      /(?:\s+(?<qttl>\d+))?/,
+      /(?:\s+(?<qclass>in))?/,
+      /(?:\s+(?<qtype>(?:a|aaaa|cname|mx|ns|ptr|soa|srv|txt|caa))(?:\s+(?<rdata>[^\s].*))?)?/,
+      /\s*/,
+    ].map(r => r.source).join('') + '$', 'i')
+
+    const highlightLineRe = new RegExp('^' + [
+      /(?<prefix>[¿┌×]\s)(?<qname>(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63}\.)/,
+      /(?:(?<s1>\s+)(?<qttl>\d+))?/,
+      /(?:(?<s2>\s+)(?<qclass>in))?/,
+      /(?:(?<s3>\s+)(?<qtype>(?:a|aaaa|cname|mx|ns|ptr|soa|srv|txt|caa))(?:(?<s4>\s+)(?<rdata>[^\s].*))?)?/,
+      /(?<s5>\s*)/,
+    ].map(r => r.source).join('') + '$', 'i')
+
+    const processInput = debounce(_processInput, 5)
+    function _processInput() {
+      const value = textarea.value
+      const position = textarea.selectionStart
+      const [processed, reposition, highlighted] = parseAndProcess(value, position)
+      highlightDiv.innerHTML = highlighted
+      if (processed !== value) {
+        textarea.value = processed
+        textarea.selectionStart = reposition
+        textarea.selectionEnd = reposition
+        textarea.focus()
+      }
+      setToQuery(processed)
+    }
+
+    function highlightInput() {
+      const value = textarea.value
+      const highlighted = parseAndHighlight(value)
+      highlightDiv.innerHTML = highlighted
+    }
+
+    function parseAndProcess(text, position) {
+      const processed = []
+      let ifrom = 0
+      let ito = -1
+
+      function addLine(line) {
+        processed.push(line)
+        if (position > ifrom) {
+          position += line.length + 1
+        }
+        ifrom = ito + 1
+        ito += line.length + 1
+      }
+
+      function addEmptyLine() {
+        addLine('')
+      }
+
+      function pushLine(line, insteadof) {
+        processed.push(line)
+        if (insteadof && line.length !== insteadof.length) {
+          if (position > ifrom) {
+            position -= insteadof.length
+            position += line.length
+          }
+          ito -= insteadof.length
+          ito += line.length
+        }
+      }
+
+      const lines = text.split('\n')
+      for (const line of lines) {
+        ifrom = ito + 1
+        ito += line.length + 1
+
+        // comment
+        if (line.startsWith(';;')) {
+          pushLine(line)
+          continue
+        }
+
+        // matched
+        const match = line.match(parseLineRe)
+        if (match) {
+          let { qname, qttl = '', qclass = '', qtype = '', rdata = '' } = match.groups
+          if (ipRe.test(qname)) {
+            qname = qname + '.in-addr.arpa.'
+            qtype = (qtype || 'ptr').toUpperCase()
+          } else {
+            if (!qname.endsWith('.')) qname = qname + '.'
+            qtype = (qtype || 'a').toUpperCase()
+          }
+          qclass = (qclass || 'in').toUpperCase()
+
+          if (qtype === 'TXT' && rdata) {
+            if (!rdata.startsWith('"')) rdata = '"' + rdata
+            if (!rdata.endsWith('"')) rdata += '"'
+          }
+
+          const resolved = resolve(qname, qtype.toLowerCase())
+          if (resolved instanceof Promise) {
+            const newline = '¿ ' + qname + '\t' + qttl + '\t' + qclass + '\t' + qtype + '\t' + rdata
+            pushLine(newline, line)
+            resolved.then(processInput)
+          } else if (resolved && resolved.Status === 0) {
+            const newline = '┌ ' + qname + '\t' + qttl + '\t' + qclass + '\t' + qtype + '\t' + rdata
+            pushLine(newline, line)
+
+            if (resolved.Answer && resolved.Answer.length) {
+              for (let i = 0; i < resolved.Answer.length; i++) {
+                const answer = resolved.Answer[i]
+
+                let rdata = answer.data
+                if (qtype === 'TXT' && rdata) {
+                  if (!rdata.startsWith('"')) rdata = '"' + rdata
+                  if (!rdata.endsWith('"')) rdata += '"'
+                }
+
+                const prefix = i < resolved.Answer.length - 1 ? '│ ' : '└ '
+                const result = prefix + answer.name + '\t' + answer.TTL + '\t' + qclass + '\t' + qtype + '\t' + rdata
+                addLine(result)
+              }
+              addEmptyLine()
+            } else {
+              const comment = resolved.Comment
+              const newline = '└→ /EMPTY/' + (comment ? ' ' + comment : '')
+              addLine(newline)
+              addEmptyLine()
+            }
+          } else {
+            const newline = '× ' + qname + '\t' + qttl + '\t' + qclass + '\t' + qtype + '\t' + rdata
+            pushLine(newline, line)
+
+            const [err, msg] = error(resolved?.Status)
+            const comment = resolved?.Comment
+            const newlineerror = '└→ /' + err + '/' + ' ' + msg + (comment ? ' | ' + comment : '')
+            addLine(newlineerror)
+            addEmptyLine()
+          }
+
+          continue
+        }
+
+        // otherwise
+        pushLine(line)
+      }
+
+      const newtext = processed.join('\n')
+      return [newtext, position, parseAndHighlight(newtext)]
+    }
+
+    function parseAndHighlight(text) {
+      const highlight = []
+      const lines = text.split('\n')
+      for (const line of lines) {
+        const match = line.match(highlightLineRe)
+        if (match) {
+          let { prefix = '', qname = '', s1 = '', qttl = '', s2 = '', qclass = '', s3 = '', qtype = '', s4 = '', rdata = '', s5 = '' } = match.groups
+          const loader = prefix.startsWith('¿') ? ' <span class="loader"></span>' : ''
+
+          let msg = ''
+          if (rdata) {
+            const resolved = resolve(qname, qtype.toLowerCase(), false)
+            if (resolved) {
+              if (resolved.Status === 0 && resolved.Answer && resolved.Answer.length) {
+                if (resolved.Answer.length === 1) {
+                  let res = resolved.Answer[0].data
+                  if (qtype === 'TXT' && res) {
+                    if (!res.startsWith('"')) res = '"' + res
+                    if (!res.endsWith('"')) res += '"'
+                  }
+
+                  if (res === rdata) {
+                    rdata = green(rdata)
+                    msg = ' <span class="good">👍 good</span>'
+                  } else {
+                    rdata = red(rdata)
+                    msg = ' <span class="bad">❌ differs from actual value</span>'
+                  }
+                } else {
+                  let found = false
+                  for (const answer of resolved.Answer) {
+                    let res = answer.data
+                    if (qtype === 'TXT' && res) {
+                      if (!res.startsWith('"')) res = '"' + res
+                      if (!res.endsWith('"')) res += '"'
+                    }
+
+                    if (res === rdata) {
+                      found = true
+                      break
+                    }
+                  }
+
+                  if (found) {
+                    rdata = cyan(rdata)
+                    msg = ' <span class="good">👍 exists within actual values</span>'
+                  } else {
+                    rdata = red(rdata)
+                    msg = ' <span class="bad">❌ differs from any actual value</span>'
+                  }
+                }
+              } else {
+                rdata = red(rdata)
+                msg = ' <span class="bad">❌ no value</span>'
+              }
+            }
+          }
+
+          const hline = prefix + blue(qname) + s1 + qttl + s2 + qclass + s3 + qtype + s4 + rdata
+          highlight.push(unmark(escape(hline)) + loader + msg)
+        } else {
+          highlight.push(escape(line))
+        }
+      }
+      return highlight.join('\n')
+    }
+
+    textarea.addEventListener('input', highlightInput)
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        setTimeout(processInput, 0)
+      }
+    })
+    textarea.addEventListener('paste', (e) => {
+      const pastedText = event.clipboardData.getData('text')
+      const isMultiline = pastedText.includes('\n')
+      if (isMultiline) setTimeout(processInput, 0)
+    })
+
+    // sync sizes using ResizeObserver
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect
+        highlightDiv.style.width = width + 'px'
+        highlightDiv.style.height = height + 'px'
+      }
+    })
+    resizeObserver.observe(textarea)
+
+    // scroll synchronization
+    textarea.addEventListener('scroll', () => {
+      highlightDiv.scrollTop = textarea.scrollTop
+      highlightDiv.scrollLeft = textarea.scrollLeft
+    })
+
+    //
+    // Resolve
+    //
+
+    function error(code) {
+      switch (code) {
+        case 0: return ['NOERROR', 'DNS Query completed successfully']
+        case 1: return ['FORMERR', 'DNS Query Format Error']
+        case 2: return ['SERVFAIL', 'Server failed to complete the DNS request']
+        case 3: return ['NXDOMAIN', 'Domain name does not exist']
+        case 4: return ['NOTIMP', 'Function not implemented']
+        case 5: return ['REFUSED', 'The server refused to answer for the query']
+        case 6: return ['YXDOMAIN', 'Name that should not exist, does exist']
+        case 7: return ['XRRSET', 'RR Set that should not exist, does exist']
+        case 8: return ['NXRRSET', 'RR Set that should exist, does not']
+        case 9: return ['NOTAUTH', 'Server not authoritative for the zone']
+        case 10: return ['NOTZONE', 'Name not contained in zone']
+        case 11: return ['DSOTYPENI', 'DSO-TYPE Not Implemented']
+        case 16: return ['BADVERS', 'Bad OPT Version']
+        case 16: return ['BADSIG', 'TSIG Signature Failure']
+        case 17: return ['BADKEY', 'Key not recognized']
+        case 18: return ['BADTIME', 'Signature out of time window']
+        case 19: return ['BADMODE', 'Bad TKEY Mode']
+        case 20: return ['BADNAME', 'Duplicate key name']
+        case 21: return ['BADALG', 'Algorithm not supported']
+        case 22: return ['BADTRUNC', 'Bad Truncation']
+        case 23: return ['BADCOOKIE', 'Bad/missing Server Cookie']
+        case 3841: return ['FETCHERR', 'DNS API fetch error']
+      }
+      return ['UNKNOWN', 'Unknown error code ' + code]
+    }
+
+    function getCached(domain, type) {
+      try {
+        const cache = localStorage.getItem(`dns__${domain}/${type}`)
+        if (cache) {
+          const parsed = JSON.parse(cache)
+          if (parsed && parsed[1] > Date.now()) return parsed[0]
+        }
+      } catch (error) {
+        console.error(`can't get cached result for ${domain}/${type}:`, error)
+      }
+    }
+
+    function setCached(domain, type, value) {
+      try {
+        const cache = JSON.stringify([value, Date.now() + 60 * 60 * 1000]) // 1 hour
+        localStorage.setItem(`dns__${domain}/${type}`, cache)
+      } catch (error) {
+        console.error(`can't set cached result for ${domain}/${type}:`, error)
+      }
+      return value
+    }
+
+    function resolve(domain, type, fetch = true) {
+      const cached = getCached(domain, type)
+      if (cached) return cached
+      if (fetch) return fetchResolve(domain, type)
+        .then(value => setCached(domain, type, value))
+    }
+
+    const resolutions = new Map()
+    function fetchResolve(domain, type) {
+      if (resolutions.has(`${domain}/${type}`)) {
+        const promise = resolutions.get(`${domain}/${type}`)
+        if (promise) return promise
+      }
+
+      const promise = googleDnsResolve(domain, type) // google by default
+        .catch(() => cloudflareDnsResolve(domain, type)) // fallback to cloudflare
+        .catch(e => ({ Status: 3841, Comment: e.message }))
+
+      promise.finally(() => {
+        resolutions.delete(`${domain}/${type}`)
+      })
+
+      resolutions.set(`${domain}/${type}`, promise)
+      return promise
+    }
+
+    function googleDnsResolve(domain, type) {
+      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
+      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
+    }
+
+    function cloudflareDnsResolve(domain, type) {
+      return fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
+        headers: { accept: 'application/dns-json' }
+      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
+    }
+
+    // not working https://quad9.net/news/blog/quad9-json-based-dns-service-retires-5-may-2025/
+    // function quad9DnsResolve(domain, type) {
+    //   return fetch(`https://dns.quad9.net:5053/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
+    //   }).then(r => r.json())
+    // }
+
+    //
+    // Query string
+    //
+
+    function getFromQuery() {
+      const hash = window.location.hash.slice(1)
+      if (hash) {
+        try {
+          const decoded = LZString.decompressFromEncodedURIComponent(hash)
+          if (decoded) {
+            textarea.value = decoded
+            setTimeout(processInput, 0)
+          }
+        } catch (e) {
+          console.error(`can't decode url:`, e)
+        }
+      }
+    }
+
+    function setToQuery(value) {
+      const tohash = []
+      const lines = value.split('\n')
+      let skipNext = false
+      for (const line of lines) {
+        if (line.startsWith('¿') || line.startsWith('┌') || line.startsWith('×')) {
+          tohash.push(line.replace(/^./, ';'))
+        } else if (line.startsWith('│')) {
+          // skip
+        } else if (line.startsWith('└')) {
+          skipNext = true
+        } else if (skipNext) {
+          skipNext = false
+        } else {
+          tohash.push(line)
+        }
+      }
+
+      value = tohash.join('\n').trim()
+      if (value) {
+        const compressed = LZString.compressToEncodedURIComponent(value)
+        window.location.hash = compressed
+      } else {
+        window.location.hash = ''
+      }
+    }
+
+    getFromQuery()
+
+    //
+    // Utils
+    //
+
+    function debounce(fn, delay) {
+      let timerId
+      return function() {
+        clearTimeout(timerId)
+        timerId = setTimeout(fn, delay)
+      }
+    }
+  </script>
+</body>
+</html>
