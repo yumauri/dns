@@ -457,6 +457,26 @@
     // Resolve
     //
 
+    const googleDnsResolve = concurrently(_googleDnsResolve, 3)
+    function _googleDnsResolve(domain, type) {
+      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
+      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
+    }
+
+    const cloudflareDnsResolve = concurrently(_cloudflareDnsResolve, 3)
+    function _cloudflareDnsResolve(domain, type) {
+      return fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
+        headers: { accept: 'application/dns-json' }
+      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
+    }
+
+    // not working https://quad9.net/news/blog/quad9-json-based-dns-service-retires-5-may-2025/
+    // const quad9DnsResolve = concurrently(_quad9DnsResolve, 3)
+    // function _quad9DnsResolve(domain, type) {
+    //   return fetch(`https://dns.quad9.net:5053/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
+    //   }).then(r => r.json())
+    // }
+
     function error(code) {
       switch (code) {
         case 0: return ['NOERROR', 'DNS Query completed successfully']
@@ -487,7 +507,7 @@
 
     function getCached(domain, type) {
       try {
-        const cache = localStorage.getItem(`dns__${domain}/${type}`)
+        const cache = sessionStorage.getItem(`dns__${domain}/${type}`)
         if (cache) {
           const parsed = JSON.parse(cache)
           if (parsed && parsed[1] > Date.now()) return parsed[0]
@@ -497,10 +517,10 @@
       }
     }
 
-    function setCached(domain, type, value) {
+    function setCached(domain, type, value, ttl = 30 * 1000) { // 30 seconds
       try {
-        const cache = JSON.stringify([value, Date.now() + 60 * 60 * 1000]) // 1 hour
-        localStorage.setItem(`dns__${domain}/${type}`, cache)
+        const cache = JSON.stringify([value, Date.now() + ttl])
+        sessionStorage.setItem(`dns__${domain}/${type}`, cache)
       } catch (error) {
         console.error(`can't set cached result for ${domain}/${type}:`, error)
       }
@@ -511,7 +531,14 @@
       const cached = getCached(domain, type)
       if (cached) return cached
       if (fetch) return fetchResolve(domain, type)
-        .then(value => setCached(domain, type, value))
+        .then(value => {
+          let ttl = 30 * 1000 // 30 seconds -> min cache time
+          if (value?.Answer && value.Answer.length > 0) {
+            const minttl = Math.min(...value.Answer.map(a => a.TTL)) * 1000
+            ttl = Math.min(minttl, 10 * 60 * 1000) // 10 minutes -> max cache time
+          }
+          setCached(domain, type, value)
+        })
     }
 
     const resolutions = new Map()
@@ -523,7 +550,7 @@
 
       const promise = googleDnsResolve(domain, type) // google by default
         .catch(() => cloudflareDnsResolve(domain, type)) // fallback to cloudflare
-        .catch(e => ({ Status: 3841, Comment: e.message }))
+        .catch(e => ({ Status: 3841, Comment: e.message || String(e) }))
 
       promise.finally(() => {
         resolutions.delete(`${domain}/${type}`)
@@ -532,23 +559,6 @@
       resolutions.set(`${domain}/${type}`, promise)
       return promise
     }
-
-    function googleDnsResolve(domain, type) {
-      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
-      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
-    }
-
-    function cloudflareDnsResolve(domain, type) {
-      return fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
-        headers: { accept: 'application/dns-json' }
-      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
-    }
-
-    // not working https://quad9.net/news/blog/quad9-json-based-dns-service-retires-5-may-2025/
-    // function quad9DnsResolve(domain, type) {
-    //   return fetch(`https://dns.quad9.net:5053/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
-    //   }).then(r => r.json())
-    // }
 
     //
     // Query string
@@ -607,6 +617,26 @@
       return function() {
         clearTimeout(timerId)
         timerId = setTimeout(fn, delay)
+      }
+    }
+
+    function concurrently(fn, maxConcurrent) {
+      let running = 0
+      const queue = []
+      return async function(...args) {
+        if (running >= maxConcurrent) {
+          await new Promise(resolve => queue.push(resolve))
+        }
+        running++
+        try {
+          return await fn(...args)
+        } finally {
+          running--
+          if (queue.length > 0) {
+            const resolve = queue.shift()
+            resolve()
+          }
+        }
       }
     }
   </script>
