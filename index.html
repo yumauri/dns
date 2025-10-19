@@ -505,12 +505,12 @@
       return ['UNKNOWN', 'Unknown error code ' + code]
     }
 
-    function getCached(domain, type) {
+    function getCached(domain, type, ttl = true) {
       try {
         const cache = sessionStorage.getItem(`dns__${domain}/${type}`)
         if (cache) {
           const parsed = JSON.parse(cache)
-          if (parsed && parsed[1] > Date.now()) return parsed[0]
+          if (parsed && ((ttl && parsed[1] > Date.now()) || !ttl)) return parsed[0]
         }
       } catch (error) {
         console.error(`can't get cached result for ${domain}/${type}:`, error)
@@ -528,7 +528,7 @@
     }
 
     function resolve(domain, type, fetch = true) {
-      const cached = getCached(domain, type)
+      const cached = getCached(domain, type, fetch)
       if (cached) return cached
       if (fetch) return fetchResolve(domain, type)
         .then(value => {
