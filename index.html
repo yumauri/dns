@@ -1,38 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DNS</title>
-  <style>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DNS</title>
+    <style>
     body {
-        padding: 0;
-        margin: 0;
-        height: 100vh;
-        background-color: #23272e;
+      padding: 0;
+      margin: 0;
+      height: 100vh;
+      background-color: #23272e;
     }
 
-    .wrapper {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        overflow: hidden;
+    #wrapper {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
     }
 
     textarea {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        padding: 5px;
-        border: 0;
-        background: transparent;
-        color: #e0e0e0;
-        font-family: monospace;
-        font-size: 1em;
-        z-index: 2;
-        resize: none;
-        overflow: auto;
-        white-space: pre;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 5px;
+      border: 0;
+      background: transparent;
+      color: #e0e0e0;
+      font-family: monospace;
+      font-size: 1em;
+      z-index: 2;
+      resize: none;
+      overflow: auto;
+      white-space: pre;
     }
 
     textarea:focus {
@@ -41,147 +43,223 @@
       box-shadow: none;
     }
 
-    .highlight {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        padding: 5px;
-        border: 0;
-        white-space: pre;
-        color: transparent;
-        font-family: monospace;
-        font-size: 1em;
-        pointer-events: none;
-        z-index: 1;
-        overflow: hidden;
+    #highlight,
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 5px;
+      border: 0;
+      white-space: pre;
+      color: transparent;
+      font-family: monospace;
+      font-size: 1em;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    #overlay {
+      z-index: 3;
+    }
+
+    #overlay .clickable.active {
+      color: rgba(0, 123, 255, 0.4);
+      text-decoration: underline;
+      text-decoration-color: #eca6a6;
+    }
+
+    #overlay.ctrl-active .clickable {
+      pointer-events: auto;
+      color: rgba(0, 123, 255, 0.4);
+    }
+
+    #overlay.ctrl-active .clickable:hover {
+      text-decoration: underline;
+      text-decoration-color: #eca6a6;
+      cursor: pointer;
     }
 
     .mark {
-        border-radius: 3px;
+      border-radius: 3px;
     }
 
     .red {
-        background-color: rgba(255, 80, 80, 0.4);
+      background-color: rgba(255, 80, 80, 0.4);
     }
 
     .green {
-        background-color: rgba(80, 255, 120, 0.4);
+      background-color: rgba(80, 255, 120, 0.4);
     }
 
     .blue {
-        background-color: rgba(0, 123, 255, 0.4);
+      background-color: rgba(0, 123, 255, 0.4);
     }
 
     .gray {
-        background-color: rgba(0, 255, 255, 0.3);
+      background-color: rgba(0, 255, 255, 0.3);
     }
 
     .good {
-        color: gray;
-        font-size: 1em;
-        line-height: 1em;
+      color: gray;
+      font-size: 1em;
+      line-height: 1em;
     }
 
     .bad {
-        color: red;
-        font-size: 1em;
-        line-height: 1em;
+      color: red;
+      font-size: 1em;
+      line-height: 1em;
     }
 
     .loader {
-        display: inline-block;
-        width: 0.5em;
-        height: 0.5em;
-        border: 2px solid transparent;
-        border-top: 2px solid gray;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+      display: inline-block;
+      width: 0.5em;
+      height: 0.5em;
+      border: 2px solid transparent;
+      border-top: 2px solid gray;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
 
     @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
-    .credentials {
-        position: absolute;
-        bottom: 1px;
-        right: 3px;
-        color: #e0e0e0;
-        opacity: 0.3;
-        z-index: 10;
-        font-family: monospace;
-        display: flex;
-        flex-direction: column;
-        align-items: end;
-        justify-content: space-between;
+    #credentials {
+      position: absolute;
+      bottom: 1px;
+      right: 3px;
+      color: #e0e0e0;
+      opacity: 0.3;
+      z-index: 10;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: end;
+      justify-content: space-between;
     }
 
-    .credentials:hover {
-        opacity: 1;
+    #credentials:hover {
+      opacity: 1;
     }
 
-    .credentials a {
-        text-decoration: none;
-        color: #3380eb;
-        display: flex;
-        gap: 7px;
-        align-items: center;
+    #credentials a {
+      text-decoration: none;
+      color: #3380eb;
+      display: flex;
+      gap: 7px;
+      align-items: center;
     }
 
-    .made, .powered {
-        display: flex;
-        gap: 7px;
-        align-items: center;
+    .made,
+    .powered {
+      display: flex;
+      gap: 7px;
+      align-items: center;
     }
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha512-qtX0GLM3qX8rxJN1gyDfcnMFFrKvixfoEOwbBib9VafR5vbChV5LeE5wSI/x+IlCkTY5ZFddFDCCfaVJJNnuKQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-</head>
-<body>
-  <div class="wrapper">
-    <div id="highlight" class="highlight"></div>
-    <textarea id="input" spellcheck="false" placeholder="Type or Paste here..."></textarea>
-  </div>
 
-  <div class="credentials">
-    <div class="powered">
-      <div>powered by</div>
-      <a target="_blank" href="https://dns.google">Google Public DNS</a>
+    #context-menu {
+      position: fixed;
+      background-color: #23272e;
+      padding: 2px 0;
+      border: 1px solid rgba(224, 224, 224, 0.3);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      display: none;
+      flex-direction: column;
+      z-index: 1000;
+    }
+
+    .menu-item {
+      padding: 2px 6px;
+      cursor: pointer;
+      color: #e0e0e0;
+      font-family: monospace;
+      font-size: 1em;
+      line-height: 1.2em;
+    }
+
+    .menu-item:hover {
+      background-color: rgba(0, 123, 255, 0.4);
+    }
+    </style>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"
+      integrity="sha512-qtX0GLM3qX8rxJN1gyDfcnMFFrKvixfoEOwbBib9VafR5vbChV5LeE5wSI/x+IlCkTY5ZFddFDCCfaVJJNnuKQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+  </head>
+  <body>
+    <div id="wrapper" class="wrapper">
+      <div id="highlight" class="highlight"></div>
+      <textarea id="input" spellcheck="false" placeholder="Type or Paste here..."></textarea>
+      <div id="overlay" class="overlay"></div>
     </div>
-    <div class="powered">
-      <div>powered by</div>
-      <a target="_blank" href="https://one.one.one.one/dns/">Cloudflare 1.1.1.1</a>
-    </div>
-    <div class="made">
-      <div>made by</div>
-      <a target="_blank" href="https://github.com/yumauri">Victor Didenko</a>
-      <div>for</div>
-      <a target="_blank" href="https://setplex.com/">Setplex</a>
-    </div>
-  </div>
 
-  <script>
+    <div id="credentials" class="credentials">
+      <div class="powered">
+        <div>powered by</div>
+        <a target="_blank" href="https://dns.google">Google Public DNS</a>
+      </div>
+      <div class="powered">
+        <div>powered by</div>
+        <a target="_blank" href="https://one.one.one.one/dns/">Cloudflare 1.1.1.1</a>
+      </div>
+      <div class="made">
+        <div>made by</div>
+        <a target="_blank" href="https://github.com/yumauri">Victor Didenko</a>
+        <div>for</div>
+        <a target="_blank" href="https://setplex.com/">Setplex</a>
+      </div>
+    </div>
+
+    <div id="context-menu">
+      <div class="menu-item" data-action="a">A</div>
+      <div class="menu-item" data-action="aaaa">AAAA</div>
+      <div class="menu-item" data-action="cname">CNAME</div>
+      <div class="menu-item" data-action="mx">MX</div>
+      <div class="menu-item" data-action="ns">NS</div>
+      <div class="menu-item" data-action="ptr">PTR</div>
+      <div class="menu-item" data-action="soa">SOA</div>
+      <div class="menu-item" data-action="srv">SRV</div>
+      <div class="menu-item" data-action="txt">TXT</div>
+      <div class="menu-item" data-action="caa">CAA</div>
+    </div>
+
+    <script>
     const textarea = document.getElementById('input')
     const highlightDiv = document.getElementById('highlight')
+    const overlayDiv = document.getElementById('overlay')
+    const contextMenuDiv = document.getElementById('context-menu')
 
     function escape(text) {
-      return text.replace(/[&<>"'/]/g, ch => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-        '/': '&#x2F;'
-      }[ch]))
+      return text.replace(
+        /[&<>"'/]/g,
+        (ch) =>
+          ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+            '/': '&#x2F;',
+          })[ch]
+      )
     }
 
-    const RED_START = '\uE001';
-    const GREEN_START = '\uE002';
-    const BLUE_START = '\uE003';
-    const CYAN_START = '\uE004';
-    const MARK_END = '\uE000';
+    const RED_START = '\uE001'
+    const GREEN_START = '\uE002'
+    const BLUE_START = '\uE003'
+    const CYAN_START = '\uE004'
+    const MARK_END = '\uE000'
 
     function red(value) {
       return RED_START + value + MARK_END
@@ -205,33 +283,44 @@
         .replace(new RegExp(GREEN_START, 'g'), '<span class="mark green">')
         .replace(new RegExp(BLUE_START, 'g'), '<span class="mark blue">')
         .replace(new RegExp(CYAN_START, 'g'), '<span class="mark gray">')
-        .replace(new RegExp(MARK_END, 'g'), '</span>');
+        .replace(new RegExp(MARK_END, 'g'), '</span>')
     }
 
-    const ipRe = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/
+    const ipv4Re = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
+    const ipv6Re = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/
 
+    // biome-ignore format: I don't like biome formatting here
     const parseLineRe = new RegExp('^' + [
-      /(?:[\s;¿]*)(?<qname>(?:(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63})\.?|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/,
+      /(?:[\s;¿]*)(?<qname>(?:(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63})\.?|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4})/,
       /(?:\s+(?<qttl>\d+))?/,
       /(?:\s+(?<qclass>in))?/,
       /(?:\s+(?<qtype>(?:a|aaaa|cname|mx|ns|ptr|soa|srv|txt|caa))(?:\s+(?<rdata>[^\s].*))?)?/,
       /\s*/,
-    ].map(r => r.source).join('') + '$', 'i')
+    ].map((r) => r.source).join('') + '$', 'i')
 
+    // biome-ignore format: I don't like biome formatting here
     const highlightLineRe = new RegExp('^' + [
       /(?<prefix>[¿┌×]\s)(?<qname>(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63}\.)/,
       /(?:(?<s1>\s+)(?<qttl>\d+))?/,
       /(?:(?<s2>\s+)(?<qclass>in))?/,
       /(?:(?<s3>\s+)(?<qtype>(?:a|aaaa|cname|mx|ns|ptr|soa|srv|txt|caa))(?:(?<s4>\s+)(?<rdata>[^\s].*))?)?/,
       /(?<s5>\s*)/,
-    ].map(r => r.source).join('') + '$', 'i')
+    ].map((r) => r.source).join('') + '$', 'i')
+
+    const linkifyRe = {
+      domain: /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b/g,
+      ipv4: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
+      ipv6: /(?<=\b|\s|^)([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\b/g,
+    }
 
     const processInput = debounce(_processInput, 5)
     function _processInput() {
       const value = textarea.value
       const position = textarea.selectionStart
       const [processed, reposition, highlighted] = parseAndProcess(value, position)
-      highlightDiv.innerHTML = highlighted
+      const linkified = parseAndLinkify(processed !== value ? processed : value)
+      highlightDiv.innerHTML = highlighted + '\n'
+      overlayDiv.innerHTML = linkified + '\n'
       if (processed !== value) {
         textarea.value = processed
         textarea.selectionStart = reposition
@@ -244,7 +333,9 @@
     function highlightInput() {
       const value = textarea.value
       const highlighted = parseAndHighlight(value)
-      highlightDiv.innerHTML = highlighted
+      const linkified = parseAndLinkify(value)
+      highlightDiv.innerHTML = highlighted + '\n'
+      overlayDiv.innerHTML = linkified + '\n'
     }
 
     function parseAndProcess(text, position) {
@@ -292,8 +383,15 @@
         const match = line.match(parseLineRe)
         if (match) {
           let { qname, qttl = '', qclass = '', qtype = '', rdata = '' } = match.groups
-          if (ipRe.test(qname)) {
-            qname = qname + '.in-addr.arpa.'
+          const ip4 = qname.match(ipv4Re)
+          const ip6 = qname.match(ipv6Re)
+          if (ip4) {
+            qname = ip4[4] + '.' + ip4[3] + '.' + ip4[2] + '.' + ip4[1] + '.in-addr.arpa.' // reverse ip octets for ptr request
+            qtype = (qtype || 'ptr').toUpperCase()
+          } else if (ip6) {
+            qname = ipv6ToPtr(qname)
+            qtype = (qtype || 'ptr').toUpperCase()
+          } else if (qname.endsWith('.arpa')) {
             qtype = (qtype || 'ptr').toUpperCase()
           } else {
             if (!qname.endsWith('.')) qname = qname + '.'
@@ -364,7 +462,7 @@
       for (const line of lines) {
         const match = line.match(highlightLineRe)
         if (match) {
-          let { prefix = '', qname = '', s1 = '', qttl = '', s2 = '', qclass = '', s3 = '', qtype = '', s4 = '', rdata = '', s5 = '' } = match.groups
+          let { prefix = '', qname = '', s1 = '', qttl = '', s2 = '', qclass = '', s3 = '', qtype = '', s4 = '', rdata = '' } = match.groups
           const loader = prefix.startsWith('¿') ? ' <span class="loader"></span>' : ''
 
           let msg = ''
@@ -422,7 +520,43 @@
           highlight.push(escape(line))
         }
       }
-      return highlight.join('\n')
+      return highlight.join('\t\n')
+    }
+
+    function parseAndLinkify(text) {
+      const matches = []
+
+      for (const [type, re] of Object.entries(linkifyRe)) {
+        let match
+        while ((match = re.exec(text)) !== null) {
+          const text = match[0]
+          matches.push({
+            start: match.index,
+            end: match.index + text.length,
+            text,
+            type: type === 'domain' && text.endsWith('.arpa') ? 'arpa' : type,
+          })
+        }
+      }
+
+      matches.sort((a, b) => a.start - b.start)
+      const filtered = []
+      for (const match of matches) {
+        if (filtered.length === 0 || match.start >= filtered[filtered.length - 1].end) {
+          filtered.push(match)
+        }
+      }
+
+      let lastIndex = 0
+      let highlighted = ''
+      for (const match of filtered) {
+        highlighted += escape(text.substring(lastIndex, match.start))
+        highlighted += `<span class="clickable" data-link="${escape(match.text)}" data-type="${match.type}">${escape(match.text)}</span>`
+        lastIndex = match.end
+      }
+      highlighted += escape(text.substring(lastIndex))
+
+      return highlighted
     }
 
     textarea.addEventListener('input', highlightInput)
@@ -431,18 +565,20 @@
         setTimeout(processInput, 0)
       }
     })
-    textarea.addEventListener('paste', (e) => {
+    textarea.addEventListener('paste', (_e) => {
       const pastedText = event.clipboardData.getData('text')
       const isMultiline = pastedText.includes('\n')
       if (isMultiline) setTimeout(processInput, 0)
     })
 
     // sync sizes using ResizeObserver
-    const resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
         const { width, height } = entry.contentRect
         highlightDiv.style.width = width + 'px'
         highlightDiv.style.height = height + 'px'
+        overlayDiv.style.width = width + 'px'
+        overlayDiv.style.height = height + 'px'
       }
     })
     resizeObserver.observe(textarea)
@@ -451,7 +587,159 @@
     textarea.addEventListener('scroll', () => {
       highlightDiv.scrollTop = textarea.scrollTop
       highlightDiv.scrollLeft = textarea.scrollLeft
+      overlayDiv.scrollTop = textarea.scrollTop
+      overlayDiv.scrollLeft = textarea.scrollLeft
     })
+
+    //
+    // Context menu
+    //
+
+    let isCtrlPressed = false
+    let currentLink = null
+
+    function activateOverlay(activate) {
+      if (activate) {
+        isCtrlPressed = true
+        overlayDiv.classList.add('ctrl-active')
+        textarea.style.cursor = 'default'
+      } else {
+        isCtrlPressed = false
+        overlayDiv.classList.remove('ctrl-active')
+        textarea.style.cursor = 'text'
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Control' && !isCtrlPressed) activateOverlay(true)
+    })
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'Control') activateOverlay(false)
+    })
+
+    function stopAndCancelEvent(e) {
+      if (!isCtrlPressed) return
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    textarea.addEventListener('mousedown', stopAndCancelEvent)
+    textarea.addEventListener('contextmenu', stopAndCancelEvent)
+
+    function handleLinkInteraction(e) {
+      if (!isCtrlPressed) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      const link = e.target.closest('.clickable')
+      if (link) {
+        const activeLinks = document.querySelectorAll('.clickable.active')
+        if (activeLinks) activeLinks.forEach((link) => link.classList.remove('active'))
+
+        link.classList.add('active')
+        currentLink = {
+          text: link.dataset.link,
+          type: link.dataset.type,
+        }
+        showContextMenu(e.clientX, e.clientY, link.dataset.type)
+      }
+    }
+
+    overlayDiv.addEventListener('click', handleLinkInteraction)
+    overlayDiv.addEventListener('contextmenu', handleLinkInteraction)
+
+    function showContextMenu(x, y, type) {
+      const items = Array.from(contextMenuDiv.querySelectorAll('.menu-item'))
+      items.forEach((item, index) => (item.style.order = (index + 1) * 10))
+
+      contextMenuDiv.style.left = x - 10 + 'px'
+      contextMenuDiv.style.top = y - 10 + 'px'
+      contextMenuDiv.style.display = 'flex'
+
+      const rect = contextMenuDiv.getBoundingClientRect()
+      if (rect.right > window.innerWidth) {
+        contextMenuDiv.style.left = window.innerWidth - rect.width - 5 + 'px'
+      }
+      if (rect.bottom > window.innerHeight) {
+        contextMenuDiv.style.top = window.innerHeight - rect.height - 5 + 'px'
+      }
+
+      adjustOrderForMousePosition(x, y, type)
+    }
+
+    function adjustOrderForMousePosition(_x, y, type) {
+      const items = Array.from(contextMenuDiv.querySelectorAll('.menu-item'))
+
+      const preferredAction = type === 'domain' ? 'a' : 'ptr'
+      const preferredItem = items.find((item) => item.dataset.action === preferredAction)
+
+      if (!preferredItem) return
+
+      const preferredOrder = parseInt(preferredItem.style.order, 10)
+
+      let closestItem = null
+      let minDistance = Infinity
+
+      items.forEach((item) => {
+        const itemRect = item.getBoundingClientRect()
+        const itemCenterY = itemRect.top + itemRect.height / 2
+        const distance = Math.abs(itemCenterY - y)
+
+        if (distance < minDistance) {
+          minDistance = distance
+          closestItem = item
+        }
+      })
+
+      if (closestItem && closestItem !== preferredItem) {
+        const closestOrder = parseInt(closestItem.style.order, 10)
+
+        // if preferred item is above the target position,
+        // we need to place it AFTER the closest item (not before)
+        // because removing it from above will shift everything up
+        if (preferredOrder < closestOrder) {
+          // moving down: place after the closest item
+          preferredItem.style.order = closestOrder + 5
+        } else {
+          // moving up: place before the closest item
+          preferredItem.style.order = closestOrder - 5
+        }
+      }
+    }
+
+    function hideContextMenu() {
+      activateOverlay(false)
+      contextMenuDiv.style.display = 'none'
+      const activeLinks = document.querySelectorAll('.clickable.active')
+      if (activeLinks) activeLinks.forEach((link) => link.classList.remove('active'))
+    }
+
+    function handleMenuInterraction(e) {
+      e.preventDefault()
+      e.stopPropagation()
+
+      const item = e.target.closest('.menu-item')
+      if (!item || !currentLink) return
+
+      const action = item.dataset.action
+      handleAction(action, currentLink)
+      hideContextMenu()
+    }
+
+    // Handle menu item clicks
+    contextMenuDiv.addEventListener('click', handleMenuInterraction)
+    contextMenuDiv.addEventListener('contextmenu', handleMenuInterraction)
+
+    function handleAction(action, link) {
+      const value = textarea.value
+      const newLines = value.endsWith('\n\n') ? '' : value.endsWith('\n') ? '\n' : '\n\n'
+      textarea.value = value + newLines + link.text + ' ' + action + '\n'
+      setTimeout(processInput, 0)
+    }
+
+    document.addEventListener('click', hideContextMenu)
+    window.addEventListener('blur', hideContextMenu)
 
     //
     // Resolve
@@ -459,15 +747,18 @@
 
     const googleDnsResolve = concurrently(_googleDnsResolve, 3)
     function _googleDnsResolve(domain, type) {
-      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
-      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
+      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {})
+        .then((r) => (r.ok ? r : Promise.reject(r)))
+        .then((r) => r.json())
     }
 
     const cloudflareDnsResolve = concurrently(_cloudflareDnsResolve, 3)
     function _cloudflareDnsResolve(domain, type) {
       return fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
-        headers: { accept: 'application/dns-json' }
-      }).then(r => r.ok ? r : Promise.reject(r)).then(r => r.json())
+        headers: { accept: 'application/dns-json' },
+      })
+        .then((r) => (r.ok ? r : Promise.reject(r)))
+        .then((r) => r.json())
     }
 
     // not working https://quad9.net/news/blog/quad9-json-based-dns-service-retires-5-may-2025/
@@ -478,6 +769,7 @@
     // }
 
     function error(code) {
+      // biome-ignore format: I don't like biome formatting here
       switch (code) {
         case 0: return ['NOERROR', 'DNS Query completed successfully']
         case 1: return ['FORMERR', 'DNS Query Format Error']
@@ -486,13 +778,13 @@
         case 4: return ['NOTIMP', 'Function not implemented']
         case 5: return ['REFUSED', 'The server refused to answer for the query']
         case 6: return ['YXDOMAIN', 'Name that should not exist, does exist']
-        case 7: return ['XRRSET', 'RR Set that should not exist, does exist']
+        case 7: return ['YXRRSET', 'RR Set that should not exist, does exist']
         case 8: return ['NXRRSET', 'RR Set that should exist, does not']
         case 9: return ['NOTAUTH', 'Server not authoritative for the zone']
         case 10: return ['NOTZONE', 'Name not contained in zone']
         case 11: return ['DSOTYPENI', 'DSO-TYPE Not Implemented']
         case 16: return ['BADVERS', 'Bad OPT Version']
-        case 16: return ['BADSIG', 'TSIG Signature Failure']
+        // case 16: return ['BADSIG', 'TSIG Signature Failure']
         case 17: return ['BADKEY', 'Key not recognized']
         case 18: return ['BADTIME', 'Signature out of time window']
         case 19: return ['BADMODE', 'Bad TKEY Mode']
@@ -517,7 +809,7 @@
       }
     }
 
-    function setCached(domain, type, value, ttl = 30 * 1000) { // 30 seconds
+    function setCached(domain, type, value, ttl = 30 * 1000) {
       try {
         const cache = JSON.stringify([value, Date.now() + ttl])
         sessionStorage.setItem(`dns__${domain}/${type}`, cache)
@@ -530,14 +822,14 @@
     function resolve(domain, type, fetch = true) {
       const cached = getCached(domain, type, fetch)
       if (cached) return cached
-      if (fetch) return fetchResolve(domain, type)
-        .then(value => {
+      if (fetch)
+        return fetchResolve(domain, type).then((value) => {
           let ttl = 30 * 1000 // 30 seconds -> min cache time
           if (value?.Answer && value.Answer.length > 0) {
-            const minttl = Math.min(...value.Answer.map(a => a.TTL)) * 1000
+            const minttl = Math.min(...value.Answer.map((a) => a.TTL)) * 1000
             ttl = Math.min(minttl, 10 * 60 * 1000) // 10 minutes -> max cache time
           }
-          setCached(domain, type, value)
+          setCached(domain, type, value, ttl)
         })
     }
 
@@ -550,7 +842,7 @@
 
       const promise = googleDnsResolve(domain, type) // google by default
         .catch(() => cloudflareDnsResolve(domain, type)) // fallback to cloudflare
-        .catch(e => ({ Status: 3841, Comment: e.message || String(e) }))
+        .catch((e) => ({ Status: 3841, Comment: e.message || String(e) }))
 
       promise.finally(() => {
         resolutions.delete(`${domain}/${type}`)
@@ -612,9 +904,28 @@
     // Utils
     //
 
+    function ipv6ToPtr(ipv6) {
+      ipv6 = ipv6.trim()
+      let parts = ipv6.split('::')
+      if (parts.length === 2) {
+        let left = parts[0] ? parts[0].split(':') : []
+        let right = parts[1] ? parts[1].split(':') : []
+        const missingGroups = 8 - left.length - right.length
+        const zeros = Array(missingGroups).fill('0000')
+        left = left.map((seg) => seg.padStart(4, '0'))
+        right = right.map((seg) => seg.padStart(4, '0'))
+        parts = [...left, ...zeros, ...right]
+      } else {
+        parts = ipv6.split(':').map((seg) => seg.padStart(4, '0'))
+      }
+      const fullAddress = parts.join('')
+      const reversed = fullAddress.split('').reverse().join('.')
+      return reversed + '.ip6.arpa'
+    }
+
     function debounce(fn, delay) {
       let timerId
-      return function() {
+      return function () {
         clearTimeout(timerId)
         timerId = setTimeout(fn, delay)
       }
@@ -623,9 +934,9 @@
     function concurrently(fn, maxConcurrent) {
       let running = 0
       const queue = []
-      return async function(...args) {
+      return async function (...args) {
         if (running >= maxConcurrent) {
-          await new Promise(resolve => queue.push(resolve))
+          await new Promise((resolve) => queue.push(resolve))
         }
         running++
         try {
@@ -639,6 +950,6 @@
         }
       }
     }
-  </script>
-</body>
+    </script>
+  </body>
 </html>
