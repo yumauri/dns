@@ -76,7 +76,7 @@
       color: rgba(0, 123, 255, 0.4);
     }
 
-    #overlay.ctrl-active .clickable:hover {
+    #overlay.ctrl-active .clickable:hover:not(:has(.clickable:hover)) {
       text-decoration: underline;
       text-decoration-color: #eca6a6;
       cursor: pointer;
@@ -169,7 +169,7 @@
     #context-menu {
       position: fixed;
       background-color: #23272e;
-      padding: 2px 0;
+      padding: 0 0 2px 0;
       border: 1px solid rgba(224, 224, 224, 0.3);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
       display: none;
@@ -177,10 +177,21 @@
       z-index: 1000;
     }
 
+    .menu-header {
+      background-color: rgba(224, 224, 224, 0.2);
+      color: #e0e0e0;
+      font-weight: bold;
+      font-family: monospace;
+      font-size: 1em;
+      line-height: 1em;
+      padding: 0 6px;
+      margin-bottom: 2px;
+    }
+
     .menu-item {
       padding: 2px 6px;
-      cursor: pointer;
       color: #e0e0e0;
+      cursor: pointer;
       font-family: monospace;
       font-size: 1em;
       line-height: 1.2em;
@@ -222,6 +233,7 @@
     </div>
 
     <div id="context-menu">
+      <div class="menu-header" id="menu-header">test.com</div>
       <div class="menu-item" data-action="a">A</div>
       <div class="menu-item" data-action="aaaa">AAAA</div>
       <div class="menu-item" data-action="cname">CNAME</div>
@@ -239,6 +251,7 @@
     const highlightDiv = document.getElementById('highlight')
     const overlayDiv = document.getElementById('overlay')
     const contextMenuDiv = document.getElementById('context-menu')
+    const contextMenuHeaderDiv = document.getElementById('menu-header')
 
     function escape(text) {
       return text.replace(
@@ -551,12 +564,30 @@
       let highlighted = ''
       for (const match of filtered) {
         highlighted += escape(text.substring(lastIndex, match.start))
-        highlighted += `<span class="clickable" data-link="${escape(match.text)}" data-type="${match.type}">${escape(match.text)}</span>`
+
+        if (match.type === 'domain') {
+          highlighted += createNestedDomainSpans(match.text, match.type)
+        } else {
+          highlighted += `<span class="clickable" data-link="${escape(match.text)}" data-type="${match.type}">${escape(match.text)}</span>`
+        }
+
         lastIndex = match.end
       }
       highlighted += escape(text.substring(lastIndex))
 
       return highlighted
+    }
+
+    function createNestedDomainSpans(domain, type) {
+      const parts = domain.split('.')
+      function buildNested(index) {
+        if (index >= parts.length) return ''
+        const currentDomain = parts.slice(index).join('.')
+        const currentPart = escape(parts[index])
+        const rest = buildNested(index + 1)
+        return rest ? `<span class="clickable" data-link="${escape(currentDomain)}" data-type="${type}">${currentPart}.${rest}</span>` : currentPart
+      }
+      return buildNested(0)
     }
 
     textarea.addEventListener('input', highlightInput)
@@ -634,6 +665,8 @@
 
       const link = e.target.closest('.clickable')
       if (link) {
+        contextMenuHeaderDiv.textContent = link.dataset.link
+
         const activeLinks = document.querySelectorAll('.clickable.active')
         if (activeLinks) activeLinks.forEach((link) => link.classList.remove('active'))
 
@@ -642,19 +675,20 @@
           text: link.dataset.link,
           type: link.dataset.type,
         }
-        showContextMenu(e.clientX, e.clientY, link.dataset.type)
+        showContextMenu(e.clientX, e.clientY)
       }
     }
 
     overlayDiv.addEventListener('click', handleLinkInteraction)
     overlayDiv.addEventListener('contextmenu', handleLinkInteraction)
 
-    function showContextMenu(x, y, type) {
+    function showContextMenu(x, y) {
       const items = Array.from(contextMenuDiv.querySelectorAll('.menu-item'))
       items.forEach((item, index) => (item.style.order = (index + 1) * 10))
 
+      const hh = parseFloat(getComputedStyle(contextMenuHeaderDiv).fontSize)
       contextMenuDiv.style.left = x - 10 + 'px'
-      contextMenuDiv.style.top = y - 10 + 'px'
+      contextMenuDiv.style.top = y - 10 - hh + 'px'
       contextMenuDiv.style.display = 'flex'
 
       const rect = contextMenuDiv.getBoundingClientRect()
@@ -665,13 +699,14 @@
         contextMenuDiv.style.top = window.innerHeight - rect.height - 5 + 'px'
       }
 
-      adjustOrderForMousePosition(x, y, type)
+      adjustOrderForMousePosition(x, y)
     }
 
-    function adjustOrderForMousePosition(_x, y, type) {
+    function adjustOrderForMousePosition(_x, y) {
       const items = Array.from(contextMenuDiv.querySelectorAll('.menu-item'))
 
-      const preferredAction = type === 'domain' ? 'a' : 'ptr'
+      const { type, text } = currentLink
+      const preferredAction = type === 'domain' ? (text.startsWith('_') ? 'txt' : 'a') : 'ptr'
       const preferredItem = items.find((item) => item.dataset.action === preferredAction)
 
       if (!preferredItem) return
