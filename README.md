@@ -42,13 +42,27 @@ The tool compares actual DNS results against your expected values and highlights
 
 ![Check](./02-check.png)
 
-### 🔗 Shareable URLs
+### 🔗 Shareable URLs & Quick Links
 
 All queries are encoded in the URL, making it easy to:
 
 - Share DNS validation checks with colleagues
 - Bookmark frequently-used queries
 - Refresh the page to revalidate all results
+
+You can also create direct links using query parameters:
+
+```
+https://dns.setplex.dev?name=google.com
+https://dns.setplex.dev?name=google.com&type=mx
+https://dns.setplex.dev?name=8.8.8.8&type=ptr
+```
+
+This makes it easy to:
+
+- Create bookmarklets for frequently-checked domains
+- Embed DNS checks in documentation
+- Generate validation links programmatically
 
 ### 🖱️ Interactive Navigation
 
