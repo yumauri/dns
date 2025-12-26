@@ -1,0 +1,9 @@
+{
+  "name": "dns",
+  "scripts": {
+    "format": "biome format --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.10"
+  }
+}
