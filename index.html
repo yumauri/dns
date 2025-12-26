@@ -892,6 +892,26 @@
     //
 
     function getFromQuery() {
+      const query = window.location.search.slice(1)
+      if (query) {
+        const searchParams = new URLSearchParams(query)
+        const name = searchParams.get('name')
+        const type = searchParams.get('type') || 'a'
+        if (name) {
+          textarea.value = `${name} ${type}`
+          setTimeout(processInput, 0)
+        }
+
+        try {
+          const url = new URL(window.location.href)
+          url.search = ''
+          const newUrl = url.toString()
+          window.history.replaceState({}, document.title, newUrl)
+        } catch (e) {
+          console.error(`can't update url:`, e)
+        }
+      }
+
       const hash = window.location.hash.slice(1)
       if (hash) {
         try {
@@ -934,6 +954,7 @@
     }
 
     getFromQuery()
+    window.addEventListener('hashchange', getFromQuery)
 
     //
     // Utils
