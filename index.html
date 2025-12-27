@@ -891,6 +891,8 @@
     // Query string
     //
 
+    let ignoreHashUpdate = false
+
     function getFromQuery() {
       const query = window.location.search.slice(1)
       if (query) {
@@ -913,7 +915,7 @@
       }
 
       const hash = window.location.hash.slice(1)
-      if (hash) {
+      if (hash && !ignoreHashUpdate) {
         try {
           const decoded = LZString.decompressFromEncodedURIComponent(hash)
           if (decoded) {
@@ -924,6 +926,7 @@
           console.error(`can't decode url:`, e)
         }
       }
+      ignoreHashUpdate = false
     }
 
     function setToQuery(value) {
@@ -944,6 +947,7 @@
         }
       }
 
+      ignoreHashUpdate = true
       value = tohash.join('\n').trim()
       if (value) {
         const compressed = LZString.compressToEncodedURIComponent(value)
