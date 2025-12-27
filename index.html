@@ -304,7 +304,7 @@
 
     // biome-ignore format: I don't like biome formatting here
     const parseLineRe = new RegExp('^' + [
-      /(?:[\s;¿]*)(?<qname>(?:(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63})\.?|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4})/,
+      /(?:[\s;¿]*)(?<qname>(?:(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63})\.?|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}|\.|[a-z]{2,63}\.)/,
       /(?:\s+(?<qttl>\d+))?/,
       /(?:\s+(?<qclass>in))?/,
       /(?:\s+(?<qtype>(?:a|aaaa|cname|mx|ns|ptr|soa|srv|txt|caa))(?:\s+(?<rdata>[^\s].*))?)?/,
@@ -313,7 +313,7 @@
 
     // biome-ignore format: I don't like biome formatting here
     const highlightLineRe = new RegExp('^' + [
-      /(?<prefix>[¿┌×]\s)(?<qname>(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63}\.)/,
+      /(?<prefix>[¿┌×]\s)(?<qname>(?:[_a-z0-9](?:[-_a-z0-9]{0,61}[_a-z0-9])?\.)+[a-z]{2,63}\.|\.|[a-z]{2,63}\.)/,
       /(?:(?<s1>\s+)(?<qttl>\d+))?/,
       /(?:(?<s2>\s+)(?<qclass>in))?/,
       /(?:(?<s3>\s+)(?<qtype>(?:a|aaaa|cname|mx|ns|ptr|soa|srv|txt|caa))(?:(?<s4>\s+)(?<rdata>[^\s].*))?)?/,
@@ -404,7 +404,8 @@
           } else if (ip6) {
             qname = ipv6ToPtr(qname)
             qtype = (qtype || 'ptr').toUpperCase()
-          } else if (qname.endsWith('.arpa')) {
+          } else if (qname.endsWith('.arpa') || qname.endsWith('.arpa.')) {
+            if (!qname.endsWith('.')) qname = qname + '.'
             qtype = (qtype || 'ptr').toUpperCase()
           } else {
             if (!qname.endsWith('.')) qname = qname + '.'
