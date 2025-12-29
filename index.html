@@ -321,8 +321,8 @@
     ].map((r) => r.source).join('') + '$', 'i')
 
     const linkifyRe = {
-      domain: /\b(?![0-9.]+\b)(?:[_a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9-]{2,}\b/g,
-      ipv4: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
+      domain: /\b(?=(?:[0-9.-]*[a-zA-Z_])[0-9a-zA-Z._-]*)(?:[_a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9-]{2,}\b/g,
+      ipv4: /\b(?:\d{1,3}\.){3}\d{1,3}\b(?!\.\d|\.i)/g,
       ipv6: /(?<=\s|^|ip6:)([0-9a-fA-F]{0,4}:){2,}:?[0-9a-fA-F]{0,4}(?=\s|$|\/|\b)/g,
     }
 
@@ -381,6 +381,7 @@
         }
       }
 
+      let cd = 0
       let rescheduled = false
       const lines = text.split('\n')
       for (const line of lines) {
@@ -389,6 +390,7 @@
 
         // comment
         if (line.startsWith(';;')) {
+          if (line.includes('-dnssec')) cd = 1
           pushLine(line)
           continue
         }
@@ -419,7 +421,7 @@
             if (!rdata.endsWith('"')) rdata += '"'
           }
 
-          const resolved = resolve(qname, qtype.toLowerCase())
+          const resolved = resolve(qname, qtype.toLowerCase(), cd)
           if (resolved instanceof Promise) {
             const newline = '¿ ' + qname + '\t' + qttl + '\t' + qclass + '\t' + qtype + '\t' + rdata
             pushLine(newline, line)
@@ -438,9 +440,13 @@
                   if (!rdata.endsWith('"')) rdata += '"'
                 }
 
-                const prefix = i < resolved.Answer.length - 1 ? '│ ' : '└ '
+                const prefix = resolved.Comment || i < resolved.Answer.length - 1 ? '│ ' : '└ '
                 const result = prefix + answer.name + '\t' + answer.TTL + '\t' + qclass + '\t' + qtype + '\t' + rdata
                 addLine(result)
+              }
+              if (resolved.Comment) {
+                const newline = `└→ // ${resolved.Comment}`
+                addLine(newline)
               }
               addEmptyLine()
             } else {
@@ -460,6 +466,7 @@
             addEmptyLine()
           }
 
+          cd = 0
           continue
         }
 
@@ -491,6 +498,7 @@
     }
 
     function parseAndHighlight(text) {
+      let cd = 0
       const highlight = []
       const lines = text.split('\n')
       for (const line of lines) {
@@ -501,7 +509,7 @@
 
           let msg = ''
           if (rdata) {
-            const resolved = resolve(qname, qtype.toLowerCase(), false)
+            const resolved = resolve(qname, qtype.toLowerCase(), cd, false)
             if (resolved) {
               if (resolved.Status === 0 && resolved.Answer && resolved.Answer.length) {
                 if (resolved.Answer.length === 1) {
@@ -550,7 +558,13 @@
 
           const hline = prefix + blue(qname) + s1 + qttl + s2 + qclass + s3 + qtype + s4 + rdata
           highlight.push(unmark(escape(hline)) + loader + msg)
+
+          cd = 0
         } else {
+          if (line.startsWith(';;')) {
+            if (line.includes('-dnssec')) cd = 1
+          }
+
           highlight.push(escape(line))
         }
       }
@@ -802,27 +816,20 @@
     //
 
     const googleDnsResolve = concurrently(_googleDnsResolve, 3)
-    function _googleDnsResolve(domain, type) {
-      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {})
+    function _googleDnsResolve(domain, type, cd) {
+      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}&cd=${cd}`, {})
         .then((r) => (r.ok ? r : Promise.reject(r)))
         .then((r) => r.json())
     }
 
     const cloudflareDnsResolve = concurrently(_cloudflareDnsResolve, 3)
-    function _cloudflareDnsResolve(domain, type) {
-      return fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
+    function _cloudflareDnsResolve(domain, type, cd) {
+      return fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}&cd=${cd}`, {
         headers: { accept: 'application/dns-json' },
       })
         .then((r) => (r.ok ? r : Promise.reject(r)))
         .then((r) => r.json())
     }
-
-    // not working https://quad9.net/news/blog/quad9-json-based-dns-service-retires-5-may-2025/
-    // const quad9DnsResolve = concurrently(_quad9DnsResolve, 3)
-    // function _quad9DnsResolve(domain, type) {
-    //   return fetch(`https://dns.quad9.net:5053/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}`, {
-    //   }).then(r => r.json())
-    // }
 
     function error(code) {
       // biome-ignore format: I don't like biome formatting here
@@ -853,58 +860,62 @@
       return ['UNKNOWN', 'Unknown error code ' + code]
     }
 
-    function getCached(domain, type, ttl = true) {
+    function getCached(domain, type, cd, ttl = true) {
+      const key = `${domain}/${type}/${cd}`
       try {
-        const cache = sessionStorage.getItem(`dns__${domain}/${type}`)
+        const cache = sessionStorage.getItem(`dns__${key}`)
         if (cache) {
           const parsed = JSON.parse(cache)
           if (parsed && ((ttl && parsed[1] > Date.now()) || !ttl)) return parsed[0]
         }
       } catch (error) {
-        console.error(`can't get cached result for ${domain}/${type}:`, error)
+        console.error(`can't get cached result for ${key}:`, error)
       }
     }
 
-    function setCached(domain, type, value, ttl = 30 * 1000) {
+    function setCached(domain, type, value, cd, ttl = 30 * 1000) {
+      const key = `${domain}/${type}/${cd}`
       try {
         const cache = JSON.stringify([value, Date.now() + ttl])
-        sessionStorage.setItem(`dns__${domain}/${type}`, cache)
+        sessionStorage.setItem(`dns__${key}`, cache)
       } catch (error) {
-        console.error(`can't set cached result for ${domain}/${type}:`, error)
+        console.error(`can't set cached result for ${key}:`, error)
       }
       return value
     }
 
-    function resolve(domain, type, fetch = true) {
-      const cached = getCached(domain, type, fetch)
+    function resolve(domain, type, cd, fetch = true) {
+      const cached = getCached(domain, type, cd, fetch)
       if (cached) return cached
       if (fetch)
-        return fetchResolve(domain, type).then((value) => {
+        return fetchResolve(domain, type, cd).then((value) => {
           let ttl = 30 * 1000 // 30 seconds -> min cache time
           if (value?.Answer && value.Answer.length > 0) {
             const minttl = Math.min(...value.Answer.map((a) => a.TTL)) * 1000
             ttl = Math.min(minttl, 10 * 60 * 1000) // 10 minutes -> max cache time
           }
-          setCached(domain, type, value, ttl)
+          setCached(domain, type, value, cd, ttl)
         })
     }
 
     const resolutions = new Map()
-    function fetchResolve(domain, type) {
-      if (resolutions.has(`${domain}/${type}`)) {
-        const promise = resolutions.get(`${domain}/${type}`)
+    function fetchResolve(domain, type, cd) {
+      const id = `${domain}/${type}/${cd}`
+
+      if (resolutions.has(id)) {
+        const promise = resolutions.get(id)
         if (promise) return promise
       }
 
-      const promise = googleDnsResolve(domain, type) // google by default
-        .catch(() => cloudflareDnsResolve(domain, type)) // fallback to cloudflare
+      const promise = googleDnsResolve(domain, type, cd) // google by default
+        .catch(() => cloudflareDnsResolve(domain, type, cd)) // fallback to cloudflare
         .catch((e) => ({ Status: 3841, Comment: e.message || String(e) }))
 
       promise.finally(() => {
-        resolutions.delete(`${domain}/${type}`)
+        resolutions.delete(id)
       })
 
-      resolutions.set(`${domain}/${type}`, promise)
+      resolutions.set(id, promise)
       return promise
     }
 
