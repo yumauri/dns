@@ -76,6 +76,11 @@
       color: rgba(0, 123, 255, 0.4);
     }
 
+    #overlay .comment .clickable.active,
+    #overlay.ctrl-active .comment .clickable {
+      color: #86b8ec;
+    }
+
     #overlay.ctrl-active .clickable:hover:not(:has(.clickable:hover)) {
       text-decoration: underline;
       text-decoration-color: #eca6a6;
@@ -100,6 +105,10 @@
 
     .gray {
       background-color: rgba(0, 255, 255, 0.3);
+    }
+
+    .comment {
+      background-color: rgba(35, 39, 46, 0.519);
     }
 
     .good {
@@ -572,43 +581,55 @@
     }
 
     function parseAndLinkify(text) {
-      const matches = []
-
-      for (const [type, re] of Object.entries(linkifyRe)) {
-        let match
-        while ((match = re.exec(text)) !== null) {
-          const text = match[0]
-          matches.push({
-            start: match.index,
-            end: match.index + text.length,
-            text,
-            type: type === 'domain' && text.endsWith('.arpa') ? 'arpa' : type,
-          })
-        }
-      }
-
-      matches.sort((a, b) => a.start - b.start)
-      const filtered = []
-      for (const match of matches) {
-        if (filtered.length === 0 || match.start >= filtered[filtered.length - 1].end) {
-          filtered.push(match)
-        }
-      }
-
-      let lastIndex = 0
+      const lines = text.split('\n')
       let highlighted = ''
-      for (const match of filtered) {
-        highlighted += escape(text.substring(lastIndex, match.start))
 
-        if (match.type === 'domain') {
-          highlighted += createNestedDomainSpans(match.text, match.type)
-        } else {
-          highlighted += `<span class="clickable" data-link="${escape(match.text)}" data-type="${match.type}">${escape(match.text)}</span>`
+      for (const line of lines) {
+        const matches = []
+        for (const [type, re] of Object.entries(linkifyRe)) {
+          let match
+          while ((match = re.exec(line)) !== null) {
+            const mtext = match[0]
+            matches.push({
+              start: match.index,
+              end: match.index + mtext.length,
+              text: mtext,
+              type: type === 'domain' && mtext.endsWith('.arpa') ? 'arpa' : type,
+            })
+          }
         }
 
-        lastIndex = match.end
+        matches.sort((a, b) => a.start - b.start)
+        const filtered = []
+        for (const match of matches) {
+          if (filtered.length === 0 || match.start >= filtered[filtered.length - 1].end) {
+            filtered.push(match)
+          }
+        }
+
+        let lastIndex = 0
+        let lineHighlighted = ''
+        for (const match of filtered) {
+          lineHighlighted += escape(line.substring(lastIndex, match.start))
+
+          if (match.type === 'domain') {
+            lineHighlighted += createNestedDomainSpans(match.text, match.type)
+          } else {
+            lineHighlighted += `<span class="clickable" data-link="${escape(match.text)}" data-type="${match.type}">${escape(match.text)}</span>`
+          }
+
+          lastIndex = match.end
+        }
+        lineHighlighted += escape(line.substring(lastIndex))
+
+        if (line.startsWith(';;')) {
+          highlighted += `<span class="comment">${lineHighlighted}</span>\n`
+        } else if (line.startsWith('└→')) {
+          highlighted += `└→ <span class="comment">${lineHighlighted.slice(3)}</span>\n`
+        } else {
+          highlighted += lineHighlighted + '\n'
+        }
       }
-      highlighted += escape(text.substring(lastIndex))
 
       return highlighted
     }
@@ -980,6 +1001,8 @@
       }
 
       ignoreHashUpdate = true
+      setTimeout(() => (ignoreHashUpdate = false), 10)
+
       value = tohash.join('\n').trim()
       if (value) {
         const compressed = LZString.compressToEncodedURIComponent(value)
