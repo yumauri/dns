@@ -256,6 +256,28 @@
     </div>
 
     <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('./sw.js')
+        .then((reg) => {
+          console.log('service worker registered', reg)
+
+          // check for updates periodically
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing
+            console.log('service worker update found')
+
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // new service worker installed, page will use it on next load
+                console.log('new content available, please refresh')
+              }
+            })
+          })
+        })
+        .catch((err) => console.log('service worker registration failed', err))
+    }
+
     const textarea = document.getElementById('input')
     const highlightDiv = document.getElementById('highlight')
     const overlayDiv = document.getElementById('overlay')

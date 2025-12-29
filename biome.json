@@ -6,7 +6,7 @@
     "useIgnoreFile": false
   },
   "files": {
-    "includes": ["./index.html"]
+    "includes": ["./index.html", "./sw.js"]
   },
   "formatter": {
     "enabled": true,
