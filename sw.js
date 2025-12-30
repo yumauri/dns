@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 const CACHE_NAME = `dns-static-cache-${CACHE_VERSION}`
 
 const CACHED_FILES = [

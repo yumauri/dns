@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <link rel="dns-prefetch" href="//dns.google" />
+    <link rel="preconnect" href="https://dns.google" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DNS</title>
@@ -858,17 +860,26 @@
     // Resolve
     //
 
-    const googleDnsResolve = concurrently(_googleDnsResolve, 3)
+    const googleDnsResolve = concurrently(_googleDnsResolve, 1)
     function _googleDnsResolve(domain, type, cd) {
-      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}&cd=${cd}`, {})
+      return fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}&cd=${cd}`, {
+        cache: 'no-store', // disable browser's cache
+        keepalive: true, // keep connection alive
+        priority: 'high',
+        referrer: '',
+      })
         .then((r) => (r.ok ? r : Promise.reject(r)))
         .then((r) => r.json())
     }
 
-    const cloudflareDnsResolve = concurrently(_cloudflareDnsResolve, 3)
+    const cloudflareDnsResolve = concurrently(_cloudflareDnsResolve, 1)
     function _cloudflareDnsResolve(domain, type, cd) {
       return fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${encodeURIComponent(type)}&cd=${cd}`, {
         headers: { accept: 'application/dns-json' },
+        cache: 'no-store', // disable browser's cache
+        keepalive: true, // keep connection alive
+        priority: 'high',
+        referrer: '',
       })
         .then((r) => (r.ok ? r : Promise.reject(r)))
         .then((r) => r.json())
